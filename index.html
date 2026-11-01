@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#f8e6eb">
+  <title>Listening Room — Strawberry Milk Player</title>
+  <style>
+    :root{
+      color-scheme:light;
+      --bg:#f8e6eb;
+      --bg-2:#fff5f7;
+      --panel:#fdf8f9;
+      --accent:#efc9d3;
+      --accent-2:#f4d7de;
+      --accent-3:#e7b8c5;
+      --line:#efd8df;
+      --line-2:#e7c9d2;
+      --ink:#5d4b53;
+      --muted:#967a84;
+      --shadow:0 10px 28px rgba(194,154,166,.18);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;background:transparent}
+    body{
+      font-family:Inter,Pretendard,"Apple SD Gothic Neo",system-ui,sans-serif;
+      color:var(--ink);
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
+    }
+    button,input{font:inherit}
+    button{cursor:pointer}
+    button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #d794a6;outline-offset:2px}
+
+    .wrap{width:min(100%,430px);margin:0 auto;padding:6px}
+    .widget{
+      position:relative;
+      padding:14px;
+      border-radius:28px;
+      background:linear-gradient(180deg,var(--bg-2),#f9edf0 100%);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.8);
+      overflow:hidden;
+    }
+    .widget::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:radial-gradient(circle at top right, rgba(255,255,255,.55), transparent 34%);
+      pointer-events:none;
+    }
+
+    .player-row{
+      display:grid;
+      grid-template-columns:88px minmax(0,1fr);
+      gap:12px;
+      align-items:center;
+      min-width:0;
+    }
+
+    .cover-wrap{position:relative;width:88px;height:88px;flex:none}
+    .cover{
+      width:88px;height:88px;border-radius:22px;overflow:hidden;
+      background:linear-gradient(145deg,#f4dbe3,#fbeef2);
+      border:1px solid var(--line);
+      box-shadow:0 6px 14px rgba(208,170,180,.18);
+      display:grid;place-items:center;
+      color:#bf9daa;
+      font-size:23px;
+      user-select:none;
+    }
+    .cover img{width:100%;height:100%;object-fit:cover;display:none}
+    .cover img.filled{display:block}
+    .mini-led{
+      position:absolute;top:7px;right:7px;
+      width:9px;height:9px;border-radius:50%;
+      background:#e8c5cf;border:1px solid #fbeef2;
+      box-shadow:0 0 0 3px rgba(255,255,255,.55);
+    }
+    .mini-led.on{background:#d98ea3}
+
+    .meta{min-width:0;display:flex;flex-direction:column;gap:10px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .label{
+      font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+      color:#af8a96;
+    }
+    .icon-btn{
+      width:30px;height:30px;border-radius:50%;border:1px solid var(--line);
+      background:rgba(255,255,255,.55);display:grid;place-items:center;color:#9b7d88;
+      transition:.15s ease;
+    }
+    .icon-btn:hover{background:#fff;color:#87646f}
+    .icon-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+    .title-block{min-width:0}
+    .title{
+      margin:0;font-size:18px;font-weight:800;letter-spacing:-.04em;line-height:1.2;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      color:#4e3e45;
+    }
+    .subtitle{
+      margin-top:4px;font-size:11px;line-height:1.3;color:var(--muted);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+
+    .progress{display:flex;align-items:center;gap:8px}
+    .bar{
+      flex:1;height:6px;border-radius:999px;overflow:hidden;
+      background:#f1dbe2;border:1px solid #edd4dc;
+    }
+    .bar-fill{
+      width:0%;height:100%;border-radius:inherit;
+      background:linear-gradient(90deg,#e5a8b8,#ebbcca);
+      transition:width .15s linear;
+    }
+    .time{font-size:10px;color:#ac8b95;font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+
+    .controls{display:flex;align-items:center;gap:8px}
+    .ctrl{
+      border:1px solid var(--line-2);
+      background:rgba(255,255,255,.68);
+      color:#805e69;
+      height:38px;min-width:38px;padding:0 12px;border-radius:999px;
+      display:inline-flex;align-items:center;justify-content:center;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.85);
+      transition:.15s ease;
+    }
+    .ctrl:hover:not(:disabled){background:#fff;color:#6f4d59}
+    .ctrl:disabled{opacity:.45;cursor:not-allowed}
+    .ctrl svg{width:16px;height:16px;fill:currentColor}
+    .ctrl.play{min-width:46px;height:46px;background:linear-gradient(180deg,#fff,#fdeef3)}
+
+    .footer{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .tiny-link,.tiny-btn{
+      border:0;background:none;padding:0;font-size:10px;line-height:1.2;color:#af8a96;text-decoration:none;
+    }
+    .tiny-link:hover,.tiny-btn:hover{text-decoration:underline}
+
+    .settings{
+      display:none;margin-top:10px;padding:14px;border-radius:22px;
+      border:1px solid var(--line);background:rgba(255,255,255,.55);
+      backdrop-filter:blur(6px);
+    }
+    .settings.visible{display:block}
+    .settings h2{margin:0 0 10px;font-size:13px;letter-spacing:-.02em}
+    .field{margin-bottom:10px}
+    .field label{display:block;margin-bottom:5px;font-size:11px;font-weight:700;color:#836670}
+    .field input{
+      width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line-2);
+      background:#fff;color:#5d4b53;font-size:12px;
+    }
+    .hint,.help,.msg{font-size:10px;line-height:1.55;color:#9d818a}
+    .msg{margin:8px 0 0;min-height:0;color:#c16074}
+    .msg.ok{color:#8a6c76}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .btn{
+      border:1px solid var(--line-2);background:#fff;color:#6f5560;
+      padding:9px 12px;border-radius:12px;font-size:11px;font-weight:700;
+    }
+    .btn.primary{background:#efc9d3;border-color:#e7b8c5;color:#684d56}
+
+    .placeholder-title{display:none}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    #yt-player-host{
+      position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;
+    }
+
+    @media(max-width:320px){
+      .wrap{padding:3px;max-width:300px}
+      .widget{padding:12px;border-radius:24px}
+      .player-row{grid-template-columns:76px minmax(0,1fr);gap:10px}
+      .cover-wrap,.cover{width:76px;height:76px;border-radius:18px}
+      .title{font-size:15px}
+      .ctrl{min-width:34px;height:34px;padding:0 10px}
+      .ctrl.play{min-width:42px;height:42px}
+      .controls{gap:6px}
+    }
+
+    @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+  </style>
+</head>
+<body>
+  <div id="yt-player-host" aria-hidden="true"></div>
+  <main class="wrap">
+    <section class="widget" aria-label="유튜브 플레이리스트 위젯">
+      <div class="player-row">
+        <div class="cover-wrap">
+          <div class="cover">
+            <img id="cover" alt="현재 곡 썸네일">
+            <span id="coverFallback" aria-hidden="true">♫</span>
+          </div>
+          <span id="liveDot" class="mini-led" aria-hidden="true"></span>
+        </div>
+
+        <div class="meta">
+          <div class="topbar">
+            <span class="label">your playlist</span>
+            <button type="button" class="icon-btn" id="settingsToggle" aria-label="설정 열기" aria-expanded="false" title="설정">
+              <svg viewBox="0 0 24 24"><path d="M12 3v2.2M12 18.8V21M4.93 4.93l1.56 1.56M17.51 17.51l1.56 1.56M3 12h2.2M18.8 12H21M4.93 19.07l1.56-1.56M17.51 6.49l1.56-1.56"></path><circle cx="12" cy="12" r="3.4"></circle></svg>
+            </button>
+          </div>
+
+          <div class="title-block">
+            <h1 id="title" class="title">listening room.</h1>
+            <div id="subtitle" class="subtitle">플레이리스트를 연결해줘</div>
+          </div>
+
+          <div class="progress" aria-hidden="true">
+            <div class="bar"><div id="barFill" class="bar-fill"></div></div>
+            <span id="time" class="time">0:00</span>
+          </div>
+
+          <div class="controls">
+            <button type="button" id="play" class="ctrl play" aria-label="재생" title="재생 / 일시정지" disabled>
+              <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+            </button>
+            <button type="button" id="next" class="ctrl" aria-label="다음 곡" title="다음 곡" disabled>
+              <svg viewBox="0 0 24 24"><path d="M17 5h2v14h-2zM5 5v14l10-7z"></path></svg>
+            </button>
+            <a id="ytLink" class="tiny-link" href="https://www.youtube.com" target="_blank" rel="noopener noreferrer">YouTube ↗</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <button id="refresh" class="tiny-btn" type="button" disabled>refresh</button>
+        <span id="statusText" class="tiny-btn" aria-live="polite">not connected</span>
+      </div>
+
+      <form id="settings" class="settings" autocomplete="off">
+        <h2>플레이리스트 연결</h2>
+        <div class="field">
+          <label for="playlistInput">유튜브 플레이리스트 URL</label>
+          <input id="playlistInput" type="text" required placeholder="https://www.youtube.com/playlist?list=PL..." spellcheck="false">
+          <div class="hint">공개 플레이리스트 또는 링크 공개 목록을 사용해줘.</div>
+        </div>
+        <div class="field">
+          <label for="nameInput">표시할 이름 (선택)</label>
+          <input id="nameInput" type="text" maxlength="60" placeholder="예: strawberry milk mix">
+        </div>
+        <div class="actions">
+          <button class="btn primary" type="submit">연결하기</button>
+          <button class="btn" id="copy" type="button">노션 링크 복사</button>
+        </div>
+        <p id="msg" class="msg" role="status"></p>
+        <p class="help">연결 후 링크를 복사해서 노션의 /embed에 붙여넣으면 돼.</p>
+      </form>
+    </section>
+  </main>
+
+  <script>
+  (() => {
+    'use strict';
+    const $ = id => document.getElementById(id);
+    const e = {
+      host: $('yt-player-host'),
+      cover: $('cover'),
+      coverFallback: $('coverFallback'),
+      liveDot: $('liveDot'),
+      settingsToggle: $('settingsToggle'),
+      settings: $('settings'),
+      playlistInput: $('playlistInput'),
+      nameInput: $('nameInput'),
+      title: $('title'),
+      subtitle: $('subtitle'),
+      barFill: $('barFill'),
+      time: $('time'),
+      play: $('play'),
+      next: $('next'),
+      playIcon: $('playIcon'),
+      ytLink: $('ytLink'),
+      refresh: $('refresh'),
+      copy: $('copy'),
+      msg: $('msg'),
+      statusText: $('statusText')
+    };
+
+    const playPath = '<path d="M8 5v14l11-7z"></path>';
+    const pausePath = '<path d="M6 5h4v14H6zm8 0h4v14h-4z"></path>';
+
+    let player = null;
+    let apiLoading = false;
+    let apiReady = false;
+    let playlistId = '';
+    let customName = '';
+    let currentVideoId = '';
+    let isPlaying = false;
+    let poll = 0;
+
+    function parsePlaylistId(raw){
+      const s = String(raw || '').trim();
+      if(/^[A-Za-z0-9_-]{10,150}$/.test(s)) return s;
+      try {
+        const u = new URL(s);
+        const okHosts = ['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be'];
+        if(!okHosts.includes(u.hostname.toLowerCase())) return null;
+        const list = u.searchParams.get('list');
+        return list && /^[A-Za-z0-9_-]{10,150}$/.test(list) ? list : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function setMessage(text, ok = false){
+      e.msg.textContent = text;
+      e.msg.classList.toggle('ok', ok);
+    }
+
+    function setSettings(show){
+      e.settings.classList.toggle('visible', show);
+      e.settingsToggle.setAttribute('aria-expanded', String(show));
+    }
+
+    function fmt(sec){
+      if(!Number.isFinite(sec) || sec < 0) return '0:00';
+      sec = Math.floor(sec);
+      return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+    }
+
+    function setStatus(text, connected = false){
+      e.statusText.textContent = text;
+      e.liveDot.classList.toggle('on', connected);
+    }
+
+    function setCover(videoId){
+      if(!/^[A-Za-z0-9_-]{11}$/.test(videoId || '')){
+        e.cover.removeAttribute('src');
+        e.cover.classList.remove('filled');
+        e.coverFallback.style.display = 'inline';
+        return;
+      }
+      const src = 'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg';
+      if(e.cover.getAttribute('src') !== src){
+        e.cover.classList.remove('filled');
+        e.coverFallback.style.display = 'inline';
+        e.cover.src = src;
+      }
+    }
+
+    e.cover.addEventListener('load', () => {
+      e.cover.classList.add('filled');
+      e.coverFallback.style.display = 'none';
+    });
+    e.cover.addEventListener('error', () => {
+      e.cover.classList.remove('filled');
+      e.coverFallback.style.display = 'inline';
+    });
+
+    function call(method, fallback){
+      try {
+        return player && typeof player[method] === 'function' ? player[method]() : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function updateUi(){
+      if(!player) return;
+      const data = call('getVideoData', {}) || {};
+      const title = data.title || '';
+      const author = data.author || 'YouTube playlist';
+      const id = data.video_id || '';
+      const duration = Number(call('getDuration', 0)) || 0;
+      const currentTime = Number(call('getCurrentTime', 0)) || 0;
+
+      if(id && id !== currentVideoId){
+        currentVideoId = id;
+        setCover(id);
+        e.ytLink.href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(id);
+      }
+      if(title){
+        e.title.textContent = title;
+        e.title.title = title;
+      }
+      e.subtitle.textContent = customName || author || 'YouTube playlist';
+      e.time.textContent = fmt(currentTime);
+      const progress = duration > 0 ? Math.max(0, Math.min(100, currentTime / duration * 100)) : 0;
+      e.barFill.style.width = progress + '%';
+      e.play.disabled = !id && !(call('getPlaylist', []) || []).length;
+      e.next.disabled = !(call('getPlaylist', []) || []).length;
+    }
+
+    function onPlayerStateChange(ev){
+      if(!window.YT || !window.YT.PlayerState) return;
+      isPlaying = ev.data === YT.PlayerState.PLAYING;
+      e.playIcon.innerHTML = isPlaying ? pausePath : playPath;
+      e.play.setAttribute('aria-label', isPlaying ? '일시정지' : '재생');
+      if(ev.data === YT.PlayerState.PLAYING) setStatus('playing', true);
+      else if(ev.data === YT.PlayerState.BUFFERING) setStatus('buffering', true);
+      else setStatus('ready', true);
+      updateUi();
+    }
+
+    function onPlayerError(){
+      setStatus('unavailable', false);
+      e.title.textContent = '재생할 수 없는 곡';
+      e.subtitle.textContent = '다른 플레이리스트를 확인해줘';
+      e.play.disabled = true;
+    }
+
+    function onPlayerReady(ev){
+      player = ev.target;
+      try {
+        player.cuePlaylist({ listType: 'playlist', list: playlistId, index: 0 });
+      } catch {
+        onPlayerError();
+        return;
+      }
+      clearInterval(poll);
+      poll = setInterval(updateUi, 700);
+      updateUi();
+      setStatus('ready', true);
+    }
+
+    function mountPlayer(){
+      if(!apiReady || !playlistId) return;
+      clearInterval(poll);
+      if(player){
+        try { player.destroy(); } catch {}
+      }
+      player = null;
+      e.host.innerHTML = '<div id="yt-player"></div>';
+      currentVideoId = '';
+      e.play.disabled = true;
+      e.next.disabled = true;
+      setStatus('connecting', false);
+      e.title.textContent = 'loading...';
+      e.subtitle.textContent = customName || 'YouTube playlist';
+      setCover('');
+      e.barFill.style.width = '0%';
+      e.time.textContent = '0:00';
+
+      player = new YT.Player('yt-player', {
+        width: '1',
+        height: '1',
+        playerVars: {
+          playsinline: 1,
+          controls: 0,
+          rel: 0,
+          autoplay: 0,
+          listType: 'playlist',
+          list: playlistId,
+          origin: /^https?:$/.test(location.protocol) ? location.origin : undefined
+        },
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+          onError: onPlayerError
+        }
+      });
+    }
+
+    function ensureApi(){
+      if(window.YT && window.YT.Player){
+        apiReady = true;
+        mountPlayer();
+        return;
+      }
+      if(apiLoading) return;
+      apiLoading = true;
+      window.onYouTubeIframeAPIReady = () => {
+        apiReady = true;
+        mountPlayer();
+      };
+      const script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      script.onerror = () => {
+        setStatus('network error', false);
+        e.title.textContent = '유튜브 연결 실패';
+        e.subtitle.textContent = '인터넷 연결을 확인해줘';
+      };
+      document.head.appendChild(script);
+    }
+
+    function buildEmbedUrl(id, name){
+      const u = new URL(location.href);
+      u.searchParams.set('playlist', id);
+      if(name) u.searchParams.set('name', name);
+      else u.searchParams.delete('name');
+      u.searchParams.delete('list');
+      return u;
+    }
+
+    function connect(id, name, changeUrl){
+      playlistId = id;
+      customName = String(name || '').trim().slice(0, 60);
+      e.playlistInput.value = 'https://www.youtube.com/playlist?list=' + id;
+      e.nameInput.value = customName;
+      e.refresh.disabled = false;
+      if(changeUrl){
+        try { history.replaceState(null, '', buildEmbedUrl(id, customName).toString()); } catch {}
+      }
+      ensureApi();
+    }
+
+    e.settings.addEventListener('submit', ev => {
+      ev.preventDefault();
+      const id = parsePlaylistId(e.playlistInput.value);
+      if(!id){
+        setMessage('유튜브 플레이리스트 링크를 확인해줘.');
+        return;
+      }
+      connect(id, e.nameInput.value, true);
+      setSettings(false);
+      setMessage('연결 완료! 노션에 넣을 링크를 복사해줘.', true);
+    });
+
+    e.settingsToggle.addEventListener('click', () => {
+      setSettings(!e.settings.classList.contains('visible'));
+    });
+
+    e.copy.addEventListener('click', async () => {
+      const id = parsePlaylistId(e.playlistInput.value);
+      if(!id){
+        setMessage('먼저 플레이리스트 URL을 입력해줘.');
+        return;
+      }
+      if(!/^https?:$/.test(location.protocol)){
+        setMessage('깃허브 페이지에 게시한 뒤 링크 복사를 눌러줘.');
+        return;
+      }
+      const link = buildEmbedUrl(id, e.nameInput.value.trim()).toString();
+      try {
+        await navigator.clipboard.writeText(link);
+        setMessage('링크 복사 완료! 노션의 /embed에 붙여넣어줘.', true);
+      } catch {
+        window.prompt('이 링크를 복사해 노션에 붙여넣어줘.', link);
+      }
+    });
+
+    e.play.addEventListener('click', () => {
+      if(!player || e.play.disabled) return;
+      try {
+        if(call('getPlayerState', -1) === YT.PlayerState.PLAYING) player.pauseVideo();
+        else player.playVideo();
+      } catch {}
+    });
+
+    e.next.addEventListener('click', () => {
+      try { player && player.nextVideo(); } catch {}
+    });
+
+    e.refresh.addEventListener('click', () => {
+      if(playlistId) mountPlayer();
+    });
+
+    const params = new URLSearchParams(location.search);
+    const startId = parsePlaylistId(params.get('playlist') || params.get('list'));
+    const startName = params.get('name') || '';
+    if(startId){
+      connect(startId, startName, false);
+      setSettings(false);
+    } else {
+      setSettings(true);
+    }
+  })();
+  </script>
+</body>
+</html>
